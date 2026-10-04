@@ -1,4 +1,4 @@
-name: Mira
+name: Mira Build APK
 
 on:
   workflow_dispatch:
@@ -13,10 +13,12 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Unzip Project
+    - name: Inspect and Unzip
       run: |
-        unzip VoiceAssistant.zip -d extracted_app
-        find extracted_app -name "build.gradle*"
+        ls -la
+        unzip -q VoiceAssistant.zip -d extracted_app
+        echo "=== Files inside extracted_app ==="
+        find extracted_app -maxdepth 3
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -26,13 +28,22 @@ jobs:
 
     - name: Build with Gradle
       run: |
-        PROJ_DIR=$(dirname $(find extracted_app -name "gradlew" | head -n 1))
-        cd "$PROJ_DIR"
-        chmod +x gradlew
-        ./gradlew assembleDebug --stacktrace
+        GRADLEW_PATH=$(find extracted_app -name "gradlew" | head -n 1)
+        if [ -z "$GRADLEW_PATH" ]; then
+          echo "gradlew not found, looking for build.gradle"
+          BUILD_GRADLE=$(find extracted_app -name "build.gradle*" | head -n 1)
+          PROJ_DIR=$(dirname "$BUILD_GRADLE")
+          cd "$PROJ_DIR"
+          gradle assembleDebug --stacktrace
+        else
+          PROJ_DIR=$(dirname "$GRADLEW_PATH")
+          cd "$PROJ_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+        fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: VoiceAssistant-APK
-        path: '**/build/outputs/apk/debug/*.apk'
+        name: Mira-VoiceAssistant-APK
+        path: '**/*.apk'
