@@ -19,10 +19,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Setup Gradle 8.4
+    - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.4'
@@ -32,26 +29,25 @@ jobs:
         mkdir -p extracted_app
         unzip -q VoiceAssistant.zip -d extracted_app
 
-    - name: Build with Gradle
+    - name: Build APK with Gradle
       run: |
-        BUILD_FILE=$(find extracted_app -name "build.gradle" -o -name "build.gradle.kts" | head -n 1)
-        if [ -z "$BUILD_FILE" ]; then
-          echo "build.gradle not found"
-          exit 1
-        fi
-        
-        PROJ_DIR=$(dirname "$BUILD_FILE")
-        cd "$PROJ_DIR"
-        
-        if [ -f "./gradlew" ]; then
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
-        elif [ -f "../gradlew" ]; then
-          chmod +x ../gradlew
-          ../gradlew assembleDebug --stacktrace --no-daemon
+        SETTINGS_FILE=$(find extracted_app -name "settings.gradle*" | head -n 1)
+        if [ -n "$SETTINGS_FILE" ]; then
+          ROOT_DIR=$(dirname "$SETTINGS_FILE")
         else
-          gradle assembleDebug --stacktrace --no-daemon
+          BUILD_FILE=$(find extracted_app -name "build.gradle*" | head -n 1)
+          ROOT_DIR=$(dirname "$BUILD_FILE")
         fi
+        
+        echo "Root Project Directory: $ROOT_DIR"
+        cd "$ROOT_DIR"
+
+        if [ ! -f "./gradlew" ]; then
+          gradle wrapper
+        fi
+        chmod +x ./gradlew
+        
+        ./gradlew assembleDebug --stacktrace --no-daemon
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
