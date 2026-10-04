@@ -13,37 +13,48 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Inspect and Unzip
-      run: |
-        ls -la
-        unzip -q VoiceAssistant.zip -d extracted_app
-        echo "=== Files inside extracted_app ==="
-        find extracted_app -maxdepth 3
-
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Setup Gradle 8.4
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
+
+    - name: Extract Project
+      run: |
+        mkdir -p extracted_app
+        unzip -q VoiceAssistant.zip -d extracted_app
+
     - name: Build with Gradle
       run: |
-        GRADLEW_PATH=$(find extracted_app -name "gradlew" | head -n 1)
-        if [ -z "$GRADLEW_PATH" ]; then
-          echo "gradlew not found, looking for build.gradle"
-          BUILD_GRADLE=$(find extracted_app -name "build.gradle*" | head -n 1)
-          PROJ_DIR=$(dirname "$BUILD_GRADLE")
-          cd "$PROJ_DIR"
-          gradle assembleDebug --stacktrace
+        BUILD_FILE=$(find extracted_app -name "build.gradle" -o -name "build.gradle.kts" | head -n 1)
+        if [ -z "$BUILD_FILE" ]; then
+          echo "build.gradle not found"
+          exit 1
+        fi
+        
+        PROJ_DIR=$(dirname "$BUILD_FILE")
+        cd "$PROJ_DIR"
+        
+        if [ -f "./gradlew" ]; then
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace --no-daemon
+        elif [ -f "../gradlew" ]; then
+          chmod +x ../gradlew
+          ../gradlew assembleDebug --stacktrace --no-daemon
         else
-          PROJ_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$PROJ_DIR"
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace --no-daemon
         fi
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: Mira-VoiceAssistant-APK
+        name: VoiceAssistant-APK
         path: '**/*.apk'
